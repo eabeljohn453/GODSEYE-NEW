@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Latest Threat</title>
+</head>
+<body>
+    <h1>Latest Threat Message</h1>
+    {% if latest_threat_message %}
+        <p>Message: {{ latest_threat_message }}</p>
+        <p>Time: {{ latest_threat_time }}</p>
+    {% else %}
+        <p>No threat messages found.</p>
+    {% endif %}
+</body>
+</html>

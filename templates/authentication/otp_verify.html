@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Godseye OTP Verification</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(to right, #1a1a1a, #2d2d2d); /* Dark gradient for security */
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .otp-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .otp-box {
+            width: 100%;
+            max-width: 400px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            border: 1px solid #404040;
+        }
+
+        .otp-box h1 {
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .otp-box p {
+            color: #a0a0a0;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .otp-box input {
+            background: #1c1e26;
+            color: #ffffff;
+            border: 1px solid #333;
+            padding: 0.75rem;
+            border-radius: 5px;
+            width: 100%;
+        }
+
+        .otp-box input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 5px #007bff;
+            outline: none;
+        }
+
+        .otp-box label {
+            color: #ffffff;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .otp-box button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #e74c3c; /* Red for urgency/threat detection */
+            color: #ffffff;
+            border-radius: 5px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .otp-box button:hover {
+            background-color: #c0392b;
+        }
+
+        .otp-box .error {
+            color: #e74c3c;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .animate-shake {
+            animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+    </style>
+</head>
+<body class="dark">
+    <div class="otp-container">
+        <a href="#" class="flex items-center mb-6 text-2xl font-semibold text-white">
+            <span class="material-icons eye-icon">visibility</span> <!-- Animated eye icon (optional, from previous design) -->
+            GODSEYE    
+        </a>
+
+        <div class="otp-box">
+            <h1 class="text-xl font-bold leading-tight tracking-tight text-white">
+                Verify Your OTP
+            </h1>
+            <p class="text-gray-400">Enter the 6-digit OTP sent to your email to access the admin dashboard.</p>
+
+            <form id="otpForm" method="POST" action="{% url 'verify_otp' %}">
+                {% csrf_token %}
+                <div>
+                    <label for="otp" class="block mb-2 text-sm font-medium text-white">OTP</label>
+                    <input type="text" name="otp" id="otp" class="bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="123456" required>
+                </div>
+                <div>
+                    <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 mt-4">
+                        Verify OTP
+                    </button>
+                </div>
+                {% if messages %}
+                    <div class="error">
+                        {% for message in messages %}
+                            {{ message }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </form>
+            <p class="text-gray-400 text-sm mt-4">
+                Didn't receive an OTP? <a href="{% url 'login' %}" class="text-blue-500 hover:underline">Request a new one</a>.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('otpForm').addEventListener('submit', function(e) {
+            const otp = document.getElementById('otp').value;
+            if (!otp) {
+                this.classList.add('animate-shake');
+                setTimeout(() => this.classList.remove('animate-shake'), 820);
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Godseye Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        /* Sidebar Styles */
+        #sidebar {
+            transition: width 0.3s ease-in-out;
+            width: 16rem;
+            min-height: 100vh;
+            background-color: #2d2d2d;
+            border-right: 1px solid #404040;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+            position: relative;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            padding-top: 1rem;
+        }
+
+        /* When sidebar is collapsed */
+        #sidebar.collapsed {
+            width: 4rem;
+        }
+
+        #sidebar.collapsed .sidebar-text {
+            display: none;
+        }
+
+        /* Sidebar Links */
+        nav a {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        nav a:hover {
+            background-color: #4a5568;
+        }
+
+        /* Logout Button */
+        .logout-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            padding: 12px;
+            text-align: center;
+            color: white;
+            cursor: pointer;
+            background-color: #d9534f;
+            border-radius: 5px;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logout-btn:hover {
+            background-color: #c9302c;
+        }
+
+        #sidebar.collapsed .logout-btn {
+            width: 90%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main-content {
+            position: absolute;
+            left: 16rem;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            transition: left 0.3s ease-in-out;
+        }
+
+        #sidebar.collapsed + .main-content {
+            left: 4rem;
+        }
+
+        /* Dark Mode */
+        body.dark {
+            background-color: #1a1a1a;
+            color: white;
+        }
+
+        /* Header */
+        .header {
+            background-color: #2d2d2d;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-icons {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .header-icons .material-icons {
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 28px;
+        }
+
+        .header-icons .material-icons:hover {
+            color: #4a90e2;
+        }
+
+        /* Notification */
+        #notification {
+            position: relative;
+        }
+
+     
+
+    /* Profile Dropdown */
+    #profileDropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 50px; /* Adjusts dropdown positioning */
+        background: white;
+        color: black;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        width: 180px;
+    }
+    
+    #profileDropdown.active {
+        display: block;
+    }
+    
+    #profileDropdown p {
+        padding: 8px;
+        font-size: 14px;
+        color: #333;
+    }
+    
+    #profileDropdown hr {
+        margin: 5px 0;
+        border: 0.5px solid #ddd;
+    }
+    
+    #profileDropdown a {
+        display: block;
+        padding: 10px;
+        text-decoration: none;
+        color: black;
+        font-weight: bold;
+    }
+    
+    #profileDropdown a:hover {
+        background: #f0f0f0;
+        border-radius: 5px;
+    }
+
+        /* Hidden class */
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-white">
+    <div class="flex">
+        <!-- Sidebar -->
+        <div id="sidebar">
+            <div class="flex items-center justify-between p-4">
+                <span id="sidebar-toggle" class="material-icons cursor-pointer">menu</span>
+                <h1 class="text-2xl font-bold sidebar-text">Godseye</h1>
+            </div>
+
+            <nav class="flex flex-col p-2">
+                <a href="#" id="liveFeedLink">
+                    <span class="material-icons">videocam</span>
+                    <span class="sidebar-text ml-2">Live Video Feed</span>
+                </a>
+                <a href="#" id="damhLink">
+                    <span class="material-icons">archive</span>
+                    <span class="sidebar-text ml-2">Detection History</span>
+                </a>
+               
+                <a href="#" id="mmLink">
+                    <span class="material-icons">message</span>
+                    <span class="sidebar-text ml-2">Manage Messages</span>
+                </a>
+            </nav>
+
+            <!-- Logout Button -->
+            <a href="{% url 'logout' %}" id="logoutBtn" class="logout-btn">Logout</a>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <h1 class="text-2xl font-bold">User Dashboard</h1>
+                <div></div> <!-- Empty div to push icons to the right -->
+
+                <div class="header-icons">
+                    <!-- Notification Icon -->
+                    <span id="notification" class="material-icons">notifications</span>
+
+                    <!-- User Profile Icon -->
+                    <div id="profile" class="relative">
+                        <span class="material-icons cursor-pointer" onclick="toggleProfile()">account_circle</span>
+                        <div id="profileDropdown" class="absolute right-0 mt-2 w-40 bg-white text-black rounded shadow-lg hidden">
+                            {% if request.user.is_authenticated %}
+                                <p class="p-2 text-sm text-gray-600">{{ request.user.email }}</p>
+                            {% else %}
+                                <p class="p-2">User not logged in</p>
+                            {% endif %}
+                            <hr>
+                            <a href="{% url 'logout' %}" class="block w-full text-left p-2 hover:bg-gray-200">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="live-feed" class="flex justify-center items-center mb-6 section hidden mt-16">
+                <div class="bg-black rounded-lg shadow-lg flex items-center justify-center" style="width: 700px; height: 500px;">
+                    <span class="text-white text-lg font-semibold">NO SIGNAL</span>
+                </div>
+            </div>
+            <div id="damh" class="flex justify-center mb-6 section hidden mt-16">
+                <div class="bg-gray-800 text-white rounded-lg shadow-lg p-6 flex flex-col justify-between items-center" style="width: 700px; height: 500px; ">
+                    <h2 class="text-xl font-semibold mb-4">Detection and Message History</h2>
+                    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white">View History</button>
+                </div>
+            </div>
+            <div id="mm" class="flex justify-center mb-6 section hidden mt-16">
+                <div class="bg-gray-800 text-white rounded-lg shadow-lg p-6 flex flex-col justify-between items-center" style="width: 700px; height: 500px;">
+                    <h2 class="text-xl font-semibold mb-4">Manage Messages</h2>
+                    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white">Manage Messages</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+
+            // Sidebar Toggle
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+            });
+
+            // Select sections
+            const liveFeedSection = document.getElementById('live-feed');
+            const damhSection = document.getElementById('damh');
+          
+            const mmSection = document.getElementById('mm');
+
+            // Select sidebar links
+            const liveFeedLink = document.getElementById('liveFeedLink');
+            const damhLink = document.getElementById('damhLink');
+           
+            const mmLink = document.getElementById('mmLink');
+
+            // Show Live Feed Section
+            liveFeedLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                liveFeedSection.classList.remove('hidden');
+                damhSection.classList.add('hidden');
+             
+                mmSection.classList.add('hidden');
+            });
+
+            // Show Detection and Message History Section
+            damhLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                liveFeedSection.classList.add('hidden');
+                damhSection.classList.remove('hidden');
+            
+                mmSection.classList.add('hidden');
+            });
+
+            
+
+            // Show Manage Messages Section
+            mmLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                liveFeedSection.classList.add('hidden');
+                damhSection.classList.add('hidden');
+              
+                mmSection.classList.remove('hidden');
+            });
+        });
+
+        
+        function toggleProfile() {
+            document.getElementById("profileDropdown").classList.toggle("active");
+        }
+
+        // Close dropdown if clicked outside
+        document.addEventListener("click", function (event) {
+            const profile = document.getElementById("profile");
+            const dropdown = document.getElementById("profileDropdown");
+
+            if (!profile.contains(event.target)) {
+                dropdown.classList.remove("active");
+            }
+        });
+
+        function logout() {
+            alert('Logging out...');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

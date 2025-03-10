@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Detection History</title>
+</head>
+<body>
+    <h1>Detection History</h1>
+    
+    <!-- Sort Links -->
+    <div>
+        <strong>Sort by:</strong>
+        <a href="?sort=timestamp&order=desc">Timestamp (Desc)</a> |
+        <a href="?sort=timestamp&order=asc">Timestamp (Asc)</a> |
+        <a href="?sort=confidence&order=desc">Confidence (Desc)</a> |
+        <a href="?sort=confidence&order=asc">Confidence (Asc)</a> |
+        <a href="?sort=class_label&order=asc">Class Label (A-Z)</a> |
+        <a href="?sort=class_label&order=desc">Class Label (Z-A)</a>
+    </div>
+    
+    <!-- High Confidence Filter -->
+    <div>
+        <a href="{% url 'history:history' %}">Show All</a> |
+        <a href="{% url 'history:history' %}?high_confidence=1">High Confidence (>0.9)</a>
+    </div>
+    
+    <!-- Detection List -->
+    {% for detection in detection_history %}
+        <p>{{ detection.class_label }} (Confidence: {{ detection.confidence|floatformat:2 }}) at {{ detection.timestamp }}</p>
+    {% empty %}
+        <p>No detections found.</p>
+    {% endfor %}
+</body>
+</html>

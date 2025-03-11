@@ -17,4 +17,3 @@ venv/
 twilio
 # Ignore database files
 *.sqlite3
-/venv

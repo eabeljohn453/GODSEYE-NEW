@@ -14,7 +14,7 @@ __pycache__/
 # Ignore environment files (for virtualenv)
 env/
 venv/
-
+twilio
 # Ignore database files
 *.sqlite3
 /venv

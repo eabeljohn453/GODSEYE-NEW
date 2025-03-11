@@ -331,20 +331,7 @@
             transform: translateX(26px);
         }
 
-        /* Custom styles for Detection and Message History */
-        #damh .card {
-            margin-top: 0; /* Removes any default margin above the card */
-            padding: 0.5rem; /* Reduced padding for tighter layout */
-        }
-
-        #damh h2 {
-            margin-bottom: 0 !important; /* Removes margin below the title */
-        }
-
-        #damh h3 {
-            margin-bottom: 0.25rem !important; /* Minimal gap before the table */
-        }
-
+       
         /* Centering Enable Audio Alert in Buzzer Control */
         #buzzer .buzzer-content {
             display: flex;
@@ -420,43 +407,49 @@
                 </div>
             </div>
 
-            <!-- Detection and Message History Section -->
-            <div id="damh" class="flex justify-center mb-6 section hidden mt-16">
-                <div class="bg-gray-800 text-white rounded-lg shadow-lg p-4 flex flex-col justify-between items-center" style="width: 700px; height: 500px;">
-                    <h2 class="text-xl font-semibold">Detection and Message History</h2>
-                    <div class="card w-full">
-                        <h3 class="text-lg font-semibold mb-1">Detection History</h3>
-                        {% if detection_history %}
-                            <div class="overflow-y-auto max-h-72">
-                                <table class="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr class="bg-gray-700">
-                                            <th class="p-2 border-b border-gray-600">Item</th>
-                                            <th class="p-2 border-b border-gray-600">Timestamp</th>
-                                            <th class="p-2 border-b border-gray-600">Confidence</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for detection in detection_history %}
-                                            <tr class="hover:bg-gray-700 transition-colors">
-                                                <td class="p-2 border-b border-gray-600">{{ detection.class_label }}</td>
-                                                <td class="p-2 border-b border-gray-600">{{ detection.timestamp|date:"Y-m-d H:i:s" }}</td>
-                                                <td class="p-2 border-b border-gray-600">{{ detection.confidence|floatformat:2 }}</td>
-                                            </tr>
-                                        {% empty %}
-                                            <tr>
-                                                <td colspan="3" class="p-2 text-center">No detection history available.</td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <p class="text-center">No detection history available.</p>
-                        {% endif %}
-                    </div>
+         <!-- Detection and Message History Section -->
+<div id="damh" class="flex justify-center mb-6 section hidden mt-16">
+    <div class="bg-gray-800 text-white rounded-lg shadow-lg p-4 flex flex-col justify-between items-center" style="width: 700px; height: 500px;">
+        <!-- Heading with no margin-bottom -->
+        <h2 class="text-xl font-semibold mb-0">Detection and Message History</h2> <!-- mb-0 removes margin -->
+        
+        <!-- Detection History Section -->
+        <div class="card w-full mt-0"> <!-- mt-0 removes margin-top -->
+            <!-- Subheading with no margin-bottom -->
+            <h3 class="text-lg font-semibold mb-0">Detection History</h3> <!-- mb-0 removes margin -->
+            
+            <!-- Table Section -->
+            {% if detection_history %}
+                <div class="overflow-y-auto max-h-72 mt-1"> <!-- mt-1 adds a tiny gap if needed -->
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-700">
+                                <th class="p-2 border-b border-gray-600 text-center">Item</th> <!-- Centered header -->
+                                <th class="p-2 border-b border-gray-600 text-center">Timestamp</th> <!-- Centered header -->
+                                <th class="p-2 border-b border-gray-600 text-center">Confidence</th> <!-- Centered header -->
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detection in detection_history %}
+                                <tr class="hover:bg-gray-700 transition-colors">
+                                    <td class="p-2 border-b border-gray-600 text-center">{{ detection.class_label }}</td> <!-- Centered content -->
+                                    <td class="p-2 border-b border-gray-600 text-center">{{ detection.timestamp|date:"Y-m-d H:i:s" }}</td> <!-- Centered content -->
+                                    <td class="p-2 border-b border-gray-600 text-center">{{ detection.confidence|floatformat:2 }}</td> <!-- Centered content -->
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="3" class="p-2 text-center">No detection history available.</td> <!-- Centered message -->
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
+            {% else %}
+                <p class="text-center mt-1">No detection history available.</p> <!-- mt-1 adds a tiny gap if needed -->
+            {% endif %}
+        </div>
+    </div>
+</div>
 
             <!-- Manage Users Section -->
             <div id="mu" class="flex justify-center mb-6 section hidden mt-16">
@@ -765,9 +758,10 @@
         function showNotification(message, type) {
             const toast = document.getElementById('notificationToast');
             toast.textContent = message;
-            toast.className = `notificationToast ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success'} show`;
+            toast.className = `notificationToast ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success'}`;
+            toast.classList.add('show');
             setTimeout(() => {
-                toast.className = `notificationToast ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success'}`;
+                toast.classList.remove('show');
             }, 3000);
         }
     </script>

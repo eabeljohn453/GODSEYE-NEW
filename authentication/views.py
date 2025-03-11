@@ -173,41 +173,32 @@ def logout_view(request):
     logout(request)
     logger.debug("User logged out, redirecting to /auth/login/")
     return redirect('/auth/login/')
-
-# Add a new user (allow duplicate emails across and within different admins, no checks)
 @login_required(login_url='/auth/login/')
 @csrf_exempt
 def add_user(request):
-    if request.method == "POST":
-        if request.user.user_type != 'admin':
-            logger.debug("Access denied - Only admins can add users")
-            return JsonResponse({"error": "Only admins can add users"}, status=403)
+    if request.method != "POST" or request.user.user_type != 'admin':
+        logger.debug(f"Access denied or invalid method for {request.user.email}")
+        return JsonResponse({"error": "Only admins can add users via POST"}, status=403 if request.user.user_type != 'admin' else 405)
 
-        name = request.POST.get("name")
-        email = request.POST.get("email")
-        password = request.POST.get("password")
+    logger.debug(f"Raw POST data: {request.POST}")
+    email = request.POST.get("email")
+    password = request.POST.get("password")
+    if not all([email, password]):
+        logger.debug(f"Missing fields: Email={email}, Password={password}")
+        return JsonResponse({"error": "Email and password are required"}, status=400)
 
-        if not all([name, email, password]):
-            logger.debug("Missing required fields for adding user")
-            return JsonResponse({"error": "All fields (Name, Email, Password) are required"}, status=400)
-
-        try:
-            user = CustomUser.objects.create(
-                username=email,
-                email=email,
-                password=make_password(password),
-                user_type="user",
-                admin=request.user
-            )
-            logger.debug(f"User added successfully: {email}")
-            cache.delete(f"users_list_{request.user.id}")
-            return JsonResponse({"message": "User added successfully"})
-        except Exception as e:
-            logger.error(f"Error adding user: {str(e)}")
-            return JsonResponse({"error": str(e)}, status=500)
-    
-    logger.debug("Invalid request for adding user")
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    try:
+        user = CustomUser.objects.create(
+            email=email,
+            password=make_password(password),
+            user_type="user",
+            admin=request.user
+        )
+        logger.info(f"User {email} added by {request.user.email}")
+        return JsonResponse({"message": "User added successfully", "user_id": user.id})
+    except Exception as e:
+        logger.error(f"Error adding user {email}: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
 
 # Fetch and return the list of users managed by the current admin
 @login_required(login_url='/auth/login/')

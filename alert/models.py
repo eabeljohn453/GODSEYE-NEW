@@ -6,6 +6,7 @@ User = get_user_model()
 
 class ThreatMessage(models.Model):
     message = models.TextField()
+    details = models.TextField(blank=True, null=True)  # New field for additional details
     created_at = models.DateTimeField(auto_now_add=True)  # Timestamp of message creation
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='threat_messages', null=True, blank=True)  # Optional admin association
 

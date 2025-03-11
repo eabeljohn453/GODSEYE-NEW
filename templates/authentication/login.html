@@ -98,7 +98,7 @@
         .login-box button {
             width: 100%;
             padding: 0.75rem;
-            background-color: #e74c3c; /* Red for urgency/threat detection */
+            background-color: #044ab3; /* Red for urgency/threat detection */
             color: #ffffff;
             border-radius: 5px;
             border: none;
@@ -108,7 +108,7 @@
         }
 
         .login-box button:hover {
-            background-color: #c0392b;
+            background-color: #3606f6;
         }
 
         .login-box .error {
@@ -144,7 +144,7 @@
             <h1 class="text-xl font-bold leading-tight tracking-tight text-white">
                 Secure Access to Threat Detection
             </h1>
-            <p class="text-gray-400">Login to monitor and respond to threats in real-time. Admins will need to verify with an OTP.</p>
+          
 
             <form id="loginForm" class="space-y-4" action="{% url 'login' %}" method="POST">
                 {% csrf_token %}
@@ -161,14 +161,14 @@
                 <!-- Email input -->
                 <div>
                     <label for="email" class="block mb-2 text-sm font-medium text-white">Your email</label>
-                    <input type="email" name="email" id="email" class="bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="name@company.com" required>
+                    <input type="email" name="email" id="email" class="bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="name@gmail.com" required>
                 </div>
 
                 <!-- Password input with toggle visibility -->
                 <div>
                     <label for="password" class="block mb-2 text-sm font-medium text-white">Password</label>
                     <div class="relative">
-                        <input type="password" name="password" id="password" placeholder="••••••••" class="bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                        <input type="password" name="password" id="password"  class="bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
                         <span id="passwordToggle" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-white cursor-pointer">
                             <i class="far fa-eye"></i>
                         </span>
@@ -178,7 +178,7 @@
                 <!-- Submit Button -->
                 <div>
                     <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                        Login to Secure System 
+                        LOGIN
                     </button>
                 </div>
             </form>

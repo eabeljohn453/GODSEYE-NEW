@@ -1,10 +1,9 @@
-# detection/views.py
 from django.http import StreamingHttpResponse
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
-from django.core.mail import send_mail  # Import Django's email functionality
+from django.core.mail import send_mail
 from django.conf import settings
-from django.contrib.auth import get_user_model  # To handle custom user models
+from django.contrib.auth import get_user_model
 import cv2
 from ultralytics import YOLO
 from alert.views import process_threat_alert
@@ -13,33 +12,41 @@ from .models import DetectedObject
 import time
 from collections import deque
 import math
+import winsound
 import logging
+import numpy as np
+import threading
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Load the model and print available class names for debugging
-model = YOLO("best.pt")
-model.verbose = False  # Suppress YOLO's default output
+# Load a smaller YOLO model (e.g., YOLOv8n for faster inference)
+model = YOLO("best.pt")  # Replace with yolov8n.pt for better performance
+model.verbose = False
 logger.debug(f"Model loaded with class names: {model.names}")
 
-video_source = getattr(settings, 'VIDEO_SOURCE', 0)
+# Initialize Twilio client
+twilio_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
-# Get the user model (custom or default)
+video_source = getattr(settings, 'VIDEO_SOURCE', 0)
 User = get_user_model()
 
 def detection_state():
     """Closure to manage detection state for all objects and threats."""
-    last_detected = None  # Track last detected object (any class)
+    last_detected = None
     last_detected_time = 0
     detection_history = deque(maxlen=10)  # History of all detections
-    threat_last_detected = None  # Track last detected threat
-    threat_last_detected_time = 0
+    threat_last_detected = {}  # Dictionary to track multiple detected threats by class
     threat_detection_history = deque(maxlen=10)  # History of threat detections
     DETECTION_TIMEOUT = 300.0  # 5 minutes timeout
-    MIN_CONFIDENCE = 0.5
-    CENTROID_THRESHOLD = 200  # Require significant movement
-    CONFIDENCE_THRESHOLD = 0.5  # Ignore minor confidence changes
+    THREAT_COOLDOWN = 10.0  # 10 seconds cooldown between alerts for the same threat instance
+    MIN_CONFIDENCE = 0.4  # Lowered confidence threshold to improve detection
+    CENTROID_THRESHOLD = 150  # Reduced to allow closer objects to be detected as new
+    CONFIDENCE_THRESHOLD = 0.3  # Reduced to be less strict
+    FRAME_SKIP = 3  # Process every 3rd frame to reduce load
+    FRAME_RESOLUTION = (480, 360)  # Resize frames to a lower resolution for faster processing
 
     def calculate_centroid(x1, y1, x2, y2):
         """Calculate the centroid of a bounding box."""
@@ -66,49 +73,97 @@ def detection_state():
             is_new = False
         return is_new
 
-    def send_threat_email(class_label, confidence, current_user):
-        """Send an email notification for a detected threat."""
-        subject = f"Threat Detected: {class_label.capitalize()}"
-        message = (
-            f"A {class_label} was detected at {time.ctime()}.\n"
-            f"Confidence: {confidence:.2f}\n"
-            f"Please take appropriate action."
-        )
-        from_email = settings.EMAIL_HOST_USER
+    def is_new_threat(class_label, centroid, conf, last_threat_dict):
+        """Check if the current threat detection is new by comparing against all tracked instances."""
+        current_time = time.time()
+        if class_label not in last_threat_dict:
+            last_threat_dict[class_label] = []
         
-        # Get emails of users associated with the current admin
-        managed_users = User.objects.filter(
-            user_type='user',
-            admin=current_user,  # Assuming 'admin' is the field name for the associated admin
-            email__isnull=False
-        ).exclude(email='')
-        user_emails = [user.email for user in managed_users]
-        
-        # Start with the current admin's email
-        recipient_list = [current_user.email]
-        
-        # Add emails of users associated with this admin
-        if user_emails:
-            recipient_list.extend(user_emails)
-        else:
-            logger.warning("No users associated with this admin have valid emails, sending to admin only")
+        # Clean up expired threats (older than THREAT_COOLDOWN)
+        last_threat_dict[class_label] = [
+            (last_centroid, last_time, last_conf)
+            for last_centroid, last_time, last_conf in last_threat_dict[class_label]
+            if current_time - last_time <= THREAT_COOLDOWN
+        ]
 
-        logger.debug(f"Sending email from: {from_email} to: {recipient_list}")
-        try:
-            send_mail(
-                subject,
-                message,
-                from_email,
-                recipient_list,
-                fail_silently=False,
+        # Compare against all tracked threats for this class
+        for last_centroid, last_time, last_conf in last_threat_dict[class_label]:
+            dx = centroid[0] - last_centroid[0]
+            dy = centroid[1] - last_centroid[1]
+            distance = math.sqrt(dx * dx + dy * dy)
+            logger.debug(f"Threat {class_label}: Centroid distance: {distance:.2f}, Confidence diff: {abs(conf - last_conf):.2f}, Time since last: {current_time - last_time:.2f}")
+            if (distance < CENTROID_THRESHOLD and abs(conf - last_conf) < CONFIDENCE_THRESHOLD):
+                return False
+        
+        return True
+
+    def send_threat_email_async(class_label, confidence, current_user):
+        """Send an email notification for a detected threat in a separate thread."""
+        def send_email():
+            subject = f"Threat Detected: {class_label.capitalize()}"
+            message = (
+                f"A {class_label} was detected at {time.ctime()}.\n"
+                f"Confidence: {confidence:.2f}\n"
+                f"Please take appropriate action."
             )
-            logger.debug(f"Email sent: {subject}")
-        except Exception as e:
-            logger.error(f"Failed to send email: {str(e)} - Details: {type(e).__name__}")
+            from_email = settings.EMAIL_HOST_USER
+            managed_users = User.objects.filter(
+                user_type='user',
+                admin=current_user,
+                email__isnull=False
+            ).exclude(email='')
+            user_emails = [user.email for user in managed_users]
+            recipient_list = [current_user.email]
+            if user_emails:
+                recipient_list.extend(user_emails)
+            else:
+                logger.warning("No users associated with this admin have valid emails, sending to admin only")
+
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    from_email,
+                    recipient_list,
+                    fail_silently=False,
+                )
+                logger.debug(f"Email sent: {subject}")
+            except Exception as e:
+                logger.error(f"Failed to send email: {str(e)} - Details: {type(e).__name__}")
+
+        threading.Thread(target=send_email, daemon=True).start()
+
+    def make_threat_call_async(class_label, confidence):
+        """Initiate a phone call to emergency contacts that plays the message immediately upon answering."""
+        def make_call():
+            for contact_number in settings.EMERGENCY_CONTACT_NUMBERS:
+                try:
+                    # Define minimal TwiML to play message immediately with debugging
+                    twiml = (
+                        '<Response>'
+                        '<Pause length="1"/>'  # 1-second pause to allow the recipient to prepare
+                        f'<Say voice="alice" loop="2">Alert: A {class_label} was detected at {time.ctime()}. Confidence: {confidence:.2f}. Please take immediate action.</Say>'
+                        '<Hangup/>'  # Explicitly end the call after the message
+                        '</Response>'
+                    )
+                    logger.debug(f"Sending TwiML to Twilio: {twiml}")  # Log the exact TwiML
+                    call = twilio_client.calls.create(
+                        twiml=twiml,
+                        to=contact_number,
+                        from_=settings.TWILIO_PHONE_NUMBER
+                    )
+                    logger.debug(f"Initiated threat call to {contact_number}: Call SID {call.sid}")
+                except TwilioRestException as e:
+                    logger.error(f"Failed to make threat call to {contact_number}: {str(e)}")
+                except Exception as e:
+                    logger.error(f"Unexpected error during threat call to {contact_number}: {str(e)}")
+
+        threading.Thread(target=make_call, daemon=True).start()
 
     def generate_frames(request):
+        """Generate video frames with threat detection."""
         nonlocal last_detected, last_detected_time, detection_history
-        nonlocal threat_last_detected, threat_last_detected_time, threat_detection_history
+        nonlocal threat_last_detected, threat_detection_history
         camera = None
         try:
             camera = cv2.VideoCapture(video_source)
@@ -116,8 +171,14 @@ def detection_state():
                 logger.error(f"Camera failed to open on source: {video_source}")
                 raise ValueError(f"Cannot open video source: {video_source}")
 
-            logger.debug(f"Camera opened successfully on source {video_source}")
+            camera.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_RESOLUTION[0])
+            camera.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_RESOLUTION[1])
+            camera.set(cv2.CAP_PROP_FPS, 15)  # Limit to 15 FPS
+            logger.debug(f"Camera opened successfully on source {video_source} with resolution {FRAME_RESOLUTION}")
+
             frame_count = 0
+            skip_counter = 0  # Counter for frame skipping
+
             while True:
                 success, frame = camera.read()
                 if not success:
@@ -125,20 +186,39 @@ def detection_state():
                     break
 
                 frame_count += 1
-                
-                results = model.predict(frame, verbose=False)  # Use predict with verbose=False
-                new_detection = False  # Flag to track if a new detection occurs
+                skip_counter += 1
+
+                # Skip frames to reduce processing load
+                if skip_counter % FRAME_SKIP != 0:
+                    # Still yield the frame to maintain video stream, but skip processing
+                    ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+                    if not ret:
+                        logger.error("Failed to encode frame to JPEG")
+                        continue
+                    frame_bytes = buffer.tobytes()
+                    yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                    continue
+
+                # Resize frame to reduce processing load
+                frame = cv2.resize(frame, FRAME_RESOLUTION, interpolation=cv2.INTER_AREA)
+
+                # Perform YOLO inference
+                start_time = time.time()
+                results = model.predict(frame, verbose=False, imgsz=FRAME_RESOLUTION[0], conf=MIN_CONFIDENCE)
+                inference_time = time.time() - start_time
+                logger.debug(f"YOLO inference took: {inference_time:.3f} seconds")
+                new_detection = False
 
                 for result in results:
                     for box in result.boxes:
                         cls = int(box.cls.item())
                         conf = float(box.conf.item())
                         x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                        class_label = model.names[cls].lower()  # Convert to lowercase for consistency
+                        class_label = model.names[cls].lower()
                         centroid = calculate_centroid(x1, y1, x2, y2)
                         current_detection = (class_label, centroid, conf)
 
-                        # Only log new detections for threats with sufficient confidence
+                        # Log new detections for threats
                         if class_label in ["knife", "gun"]:
                             if is_new_detection(current_detection, last_detected, last_detected_time, detection_history):
                                 logger.debug(f"New detection: {class_label}, confidence: {conf}, cls: {cls}")
@@ -152,13 +232,13 @@ def detection_state():
                         if class_label not in ["knife", "gun"]:
                             continue
 
-                        # Apply minimum confidence threshold for threats
+                        # Apply minimum confidence threshold for threats (already set in predict)
                         if conf < MIN_CONFIDENCE:
                             continue
 
                         logger.debug(f"Processing threat: {class_label} (confidence: {conf})")
-                        # Check if this is a new threat detection
-                        if is_new_detection(current_detection, threat_last_detected, threat_last_detected_time, threat_detection_history):
+                        # Check if this is a new threat instance
+                        if is_new_threat(class_label, centroid, conf, threat_last_detected):
                             new_detection = True
                             try:
                                 detection = DetectedObject.objects.create(
@@ -177,13 +257,26 @@ def detection_state():
                                       (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 
                                       0.5, (0, 0, 255), 2)
                             process_threat_alert(class_label)
-                            # Send email to current admin and their associated users
-                            send_threat_email(class_label, conf, request.user)
-                            threat_last_detected = current_detection
-                            threat_last_detected_time = time.time()
+                            send_threat_email_async(class_label, conf, request.user)
+                            make_threat_call_async(class_label, conf)  # Initiate phone call
+                            # Play audio alert if buzzer is enabled
+                            buzzer_enabled = request.session.get('buzzer_enabled', True)
+                            if buzzer_enabled:
+                                try:
+                                    winsound.Beep(1000, 200)  # 1000 Hz, 200 ms duration
+                                    logger.debug("Threat detected - Beep played!")
+                                except Exception as e:
+                                    logger.error(f"Failed to play beep sound: {str(e)}")
+                            else:
+                                logger.debug("Threat detected, but buzzer is disabled.")
+                            # Add this new threat instance to the list of tracked threats
+                            threat_last_detected[class_label].append((centroid, time.time(), conf))
                             threat_detection_history.append(current_detection)
+                        else:
+                            logger.debug(f"Duplicate threat skipped: {class_label}, confidence: {conf}")
 
-                ret, buffer = cv2.imencode('.jpg', frame)
+                # Optimize JPEG encoding with lower quality to reduce bandwidth
+                ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
                 if not ret:
                     logger.error("Failed to encode frame to JPEG")
                     continue
@@ -204,9 +297,13 @@ def detection_state():
 # Create the generator function with state
 generate_frames_with_state = detection_state()
 
+@login_required(login_url='/auth/login/')
 def video_feed(request):
     """View to return a streaming response for the video feed."""
+    buzzer_enabled = request.GET.get('buzzer_enabled', 'true').lower() == 'true'
+    request.session['buzzer_enabled'] = buzzer_enabled
+    logger.debug(f"Buzzer enabled state: {buzzer_enabled}")
     return StreamingHttpResponse(
         generate_frames_with_state(request),
         content_type='multipart/x-mixed-replace; boundary=frame'
-    )
+   )

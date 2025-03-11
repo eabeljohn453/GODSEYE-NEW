@@ -276,13 +276,83 @@
         }
 
         #notificationToast.warning {
-            background: #f1c40f; /* Yellow for warnings (unused here, but kept for consistency) */
+            background: #f1c40f;
             color: #000000;
         }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        /* Toggle Switch Styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Custom styles for Detection and Message History */
+        #damh .card {
+            margin-top: 0; /* Removes any default margin above the card */
+            padding: 0.5rem; /* Reduced padding for tighter layout */
+        }
+
+        #damh h2 {
+            margin-bottom: 0 !important; /* Removes margin below the title */
+        }
+
+        #damh h3 {
+            margin-bottom: 0.25rem !important; /* Minimal gap before the table */
+        }
+
+        /* Centering Enable Audio Alert in Buzzer Control */
+        #buzzer .buzzer-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            width: 100%;
         }
     </style>
 </head>
@@ -309,9 +379,9 @@
                     <span class="material-icons">people</span>
                     <span class="sidebar-text ml-2">Manage Users</span>
                 </a>
-                <a href="#" id="mmLink">
-                    <span class="material-icons">message</span>
-                    <span class="sidebar-text ml-2">Manage Messages</span>
+                <a href="#" id="buzzerLink">
+                    <span class="material-icons">volume_up</span>
+                    <span class="sidebar-text ml-2">Buzzer Control</span>
                 </a>
             </nav>
 
@@ -352,37 +422,39 @@
 
             <!-- Detection and Message History Section -->
             <div id="damh" class="flex justify-center mb-6 section hidden mt-16">
-                <div class="bg-gray-800 text-white rounded-lg shadow-lg p-6 flex flex-col justify-between items-center" style="width: 700px; height: 500px;">
-                    <h2 class="text-xl font-semibold mb-4">Detection and Message History</h2>
-                    <div class="card">
-                        <h3>Detection History</h3>
+                <div class="bg-gray-800 text-white rounded-lg shadow-lg p-4 flex flex-col justify-between items-center" style="width: 700px; height: 500px;">
+                    <h2 class="text-xl font-semibold">Detection and Message History</h2>
+                    <div class="card w-full">
+                        <h3 class="text-lg font-semibold mb-1">Detection History</h3>
                         {% if detection_history %}
-                            <ul>
-                                {% for detection in detection_history %}
-                                    <li>{{ detection.class_label }} detected at {{ detection.timestamp|date:"Y-m-d H:i:s" }} (Confidence: {{ detection.confidence|floatformat:2 }})</li>
-                                {% empty %}
-                                    <p>No detection history available.</p>
-                                {% endfor %}
-                            </ul>
+                            <div class="overflow-y-auto max-h-72">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-700">
+                                            <th class="p-2 border-b border-gray-600">Item</th>
+                                            <th class="p-2 border-b border-gray-600">Timestamp</th>
+                                            <th class="p-2 border-b border-gray-600">Confidence</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for detection in detection_history %}
+                                            <tr class="hover:bg-gray-700 transition-colors">
+                                                <td class="p-2 border-b border-gray-600">{{ detection.class_label }}</td>
+                                                <td class="p-2 border-b border-gray-600">{{ detection.timestamp|date:"Y-m-d H:i:s" }}</td>
+                                                <td class="p-2 border-b border-gray-600">{{ detection.confidence|floatformat:2 }}</td>
+                                            </tr>
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="3" class="p-2 text-center">No detection history available.</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         {% else %}
-                            <p>No detection history available.</p>
+                            <p class="text-center">No detection history available.</p>
                         {% endif %}
                     </div>
-                    <div class="card">
-                        <h3>Messages</h3>
-                        {% if messages %}
-                            <ul>
-                                {% for message in messages %}
-                                    <li>{{ message.message }} (Created at: {{ message.created_at|date:"Y-m-d H:i:s" }})</li>
-                                {% empty %}
-                                    <p>No threat messages available.</p>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p>No threat messages available.</p>
-                        {% endif %}
-                    </div>
-                    <a href="#" class="btn px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white mt-4">View Full History</a>
                 </div>
             </div>
 
@@ -395,9 +467,8 @@
                     <div id="addUserForm" class="w-full mb-4">
                         <h3 class="text-lg font-semibold mb-2">Add New User</h3>
                         <form id="userForm" class="flex flex-col space-y-2 mb-4">
-                            <input type="text" id="userName" placeholder="Name" class="p-2 bg-gray-700 text-white rounded" style="width: 300px; height: 40px;" required />
-                            <input type="email" id="userEmail" placeholder="Email" class="p-2 bg-gray-700 text-white rounded" style="width: 300px; height: 40px;" required />
-                            <input type="password" name="password" id="password" placeholder="••••••••" class="p-2 bg-gray-700 text-white rounded" style="width: 300px; height: 40px;" required />
+                            <input type="email" id="userEmail" name="email" placeholder="Email" class="p-2 bg-gray-700 text-white rounded" style="width: 300px; height: 40px;" required />
+                            <input type="password" id="password" name="password" placeholder="••••••••" class="p-2 bg-gray-700 text-white rounded" style="width: 300px; height: 40px;" required />
                             <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white flex items-center justify-center" style="width: 300px; height: 40px;" id="addUserButton">
                                 Add User
                                 <span id="loadingSpinner" class="loading"></span>
@@ -421,11 +492,19 @@
                 </div>
             </div>
 
-            <!-- Manage Messages Section -->
-            <div id="mm" class="flex justify-center mb-6 section hidden mt-16">
+            <!-- Buzzer Control Section -->
+            <div id="buzzer" class="flex justify-center mb-6 section hidden mt-16">
                 <div class="bg-gray-800 text-white rounded-lg shadow-lg p-6 flex flex-col justify-between items-center" style="width: 700px; height: 500px;">
-                    <h2 class="text-xl font-semibold mb-4">Manage Messages</h2>
-                    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white">Manage Messages</button>
+                    <h2 class="text-xl font-semibold mb-4">Buzzer Control</h2>
+                    <div class="buzzer-content">
+                        <div class="flex items-center space-x-4">
+                            <label for="buzzerToggle" class="text-lg">Enable Audio Alert</label>
+                            <label class="switch">
+                                <input type="checkbox" id="buzzerToggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -441,11 +520,11 @@
             const liveFeedSection = document.getElementById('live-feed');
             const damhSection = document.getElementById('damh');
             const muSection = document.getElementById('mu');
-            const mmSection = document.getElementById('mm');
+            const buzzerSection = document.getElementById('buzzer');
             const liveFeedLink = document.getElementById('liveFeedLink');
             const damhLink = document.getElementById('damhLink');
             const muLink = document.getElementById('muLink');
-            const mmLink = document.getElementById('mmLink');
+            const buzzerLink = document.getElementById('buzzerLink');
 
             // Sidebar Toggle
             sidebarToggle.addEventListener('click', (e) => {
@@ -456,7 +535,7 @@
             // Optimize section switching
             function showSection(sectionToShow) {
                 requestAnimationFrame(() => {
-                    [liveFeedSection, damhSection, muSection, mmSection].forEach(section => {
+                    [liveFeedSection, damhSection, muSection, buzzerSection].forEach(section => {
                         section.classList.add('hidden');
                     });
                     sectionToShow.classList.remove('hidden');
@@ -464,7 +543,7 @@
             }
 
             // Sidebar link handlers
-            [liveFeedLink, damhLink, muLink, mmLink].forEach(link => {
+            [liveFeedLink, damhLink, muLink, buzzerLink].forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     switch (link.id) {
@@ -477,8 +556,8 @@
                         case 'muLink':
                             showSection(muSection);
                             break;
-                        case 'mmLink':
-                            showSection(mmSection);
+                        case 'buzzerLink':
+                            showSection(buzzerSection);
                             break;
                     }
                 });
@@ -486,6 +565,25 @@
 
             // Fetch users when page loads
             fetchUsers();
+
+            // Save buzzer state to localStorage and sync with server
+            const buzzerToggle = document.getElementById('buzzerToggle');
+            const savedState = localStorage.getItem('buzzerEnabled');
+            if (savedState !== null) {
+                buzzerToggle.checked = savedState === 'true';
+            }
+
+            buzzerToggle.addEventListener('change', () => {
+                localStorage.setItem('buzzerEnabled', buzzerToggle.checked);
+                showNotification(`Buzzer ${buzzerToggle.checked ? 'enabled' : 'disabled'}!`, 'success');
+
+                // Update the video feed with the new buzzer state
+                const videoFeedImg = document.querySelector('#live-feed img');
+                if (videoFeedImg) {
+                    const baseUrl = "{% url 'detection:video_feed' %}";
+                    videoFeedImg.src = `${baseUrl}?buzzer_enabled=${buzzerToggle.checked}`;
+                }
+            });
         });
 
         // Handle user form submission (Adding Users)
@@ -499,13 +597,12 @@
             addUserButton.disabled = true;
             loadingSpinner.style.display = "inline-block";
 
-            let name = document.getElementById("userName").value;
             let email = document.getElementById("userEmail").value;
             let password = document.getElementById("password").value;
 
             // Validate form fields
-            if (!name || !email || !password) {
-                showNotification("All fields (Name, Email, Password) are required.", "error");
+            if (!email || !password) {
+                showNotification("Email and Password are required.", "error");
                 addUserButton.disabled = false;
                 loadingSpinner.style.display = "none";
                 return;
@@ -518,7 +615,7 @@
                         "Content-Type": "application/x-www-form-urlencoded",
                         "X-CSRFToken": getCookie("csrftoken"),
                     },
-                    body: `name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+                    body: `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
                 });
 
                 const data = await response.json();
@@ -527,16 +624,15 @@
                     showNotification(data.error, "error");
                 } else {
                     showNotification("User added successfully!", "success");
-                    await fetchUsers(true); // Force refresh the user list immediately after adding
-                    // Reset form fields after successful addition
-                    document.getElementById("userForm").reset();
-                    // Add a short delay and retry if the list doesn't update
+                    await fetchUsers(true); // Force refresh the user list
+                    document.getElementById("userForm").reset(); // Clear form
+                    // Retry fetch if list doesn’t update
                     setTimeout(async () => {
                         if (document.getElementById('users').querySelector('li')?.textContent.includes('No users available.')) {
                             await fetchUsers(true);
                             showNotification("Refreshed user list after delay.", "success");
                         }
-                    }, 1000); // Retry after 1 second
+                    }, 1000);
                 }
             } catch (error) {
                 console.error("Error:", error);
@@ -553,7 +649,7 @@
             try {
                 console.log("Fetching users, forceRefresh:", forceRefresh);
                 const response = await fetch("/auth/users_list/", {
-                    cache: forceRefresh ? "no-cache" : "default", // Force no-cache for fresh data
+                    cache: forceRefresh ? "no-cache" : "default",
                     headers: {
                         "X-CSRFToken": getCookie("csrftoken"),
                     }
@@ -567,17 +663,16 @@
             }
         }
 
-        // Render user list with checkboxes (optimized for performance)
+        // Render user list with checkboxes
         function renderUserList(users) {
             const userList = document.getElementById('users');
-            userList.innerHTML = ''; // Clear list efficiently
+            userList.innerHTML = '';
 
             if (users.length === 0) {
                 userList.innerHTML = '<li class="p-2 bg-gray-700 rounded w-full">No users available.</li>';
                 return;
             }
 
-            // Use DocumentFragment for batch DOM updates
             const fragment = document.createDocumentFragment();
             users.forEach(user => {
                 const li = document.createElement('li');
@@ -590,7 +685,7 @@
                 `;
                 fragment.appendChild(li);
             });
-            userList.appendChild(fragment); // Single DOM update
+            userList.appendChild(fragment);
             console.log("User list rendered with", users.length, "users");
         }
 
@@ -650,13 +745,13 @@
 
                 if (data.success) {
                     showNotification("Users deleted successfully!", "success");
-                    await fetchUsers(true); // Force refresh the user list immediately after deletion
+                    await fetchUsers(true);
                     setTimeout(async () => {
                         if (document.getElementById('users').querySelector('li')?.textContent.includes('No users available.')) {
                             await fetchUsers(true);
                             showNotification("Refreshed user list after delay.", "success");
                         }
-                    }, 1000); // Retry after 1 second
+                    }, 1000);
                 } else {
                     showNotification("Error deleting users!", "error");
                 }
@@ -673,7 +768,7 @@
             toast.className = `notificationToast ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success'} show`;
             setTimeout(() => {
                 toast.className = `notificationToast ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success'}`;
-            }, 3000); // Auto-hide after 3 seconds
+            }, 3000);
         }
     </script>
 </body>

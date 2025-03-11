@@ -18,5 +18,3 @@ twilio
 # Ignore database files
 *.sqlite3
 /venv
-GODSEYE/settings.py
-.env
